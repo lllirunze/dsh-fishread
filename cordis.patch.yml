@@ -1,0 +1,12 @@
+# dsh-fishread bundle patch
+#
+# Installed into a profile with its absolute path:
+#
+#   dsh plugin --profile desktop add /path/to/dsh-fishread
+#
+# Boot merges this layer, mounting the Host half (storage, window lifecycle and
+# the authenticated routes). The browser half is discovered from package.json's
+# `dsh.client` declaration.
+- insert:
+    - id: fishread
+      name: dsh-fishread

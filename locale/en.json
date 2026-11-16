@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "FishRead",
+    "description": "Read one offline TXT or Markdown novel in a small native window, with global shortcuts and saved progress.",
+    "detail": "docs/detail.en.md"
+  }
+}

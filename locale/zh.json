@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "摸鱼阅读",
+    "description": "在独立的原生小窗里离线阅读单本 TXT / Markdown 小说，支持全局快捷键与进度记忆。",
+    "detail": "docs/detail.zh.md"
+  }
+}

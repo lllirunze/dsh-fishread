@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; media-src 'none'; connect-src 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FishRead</title>
+    <link rel="stylesheet" href="reader.css" />
+  </head>
+  <body data-theme="light" data-indent="2">
+    <div class="app">
+      <header class="titlebar" id="titlebar">
+        <span class="title" id="title"></span>
+        <div class="titlebar-actions" id="titlebar-actions">
+          <button class="icon-btn" id="btn-toc" type="button" hidden></button>
+          <button class="icon-btn" id="btn-settings" type="button"></button>
+          <button class="icon-btn" id="btn-hide" type="button"></button>
+          <button class="icon-btn danger" id="btn-close" type="button"></button>
+        </div>
+      </header>
+
+      <main class="stage" id="stage">
+        <section class="empty" id="empty">
+          <div class="empty-mark">◡̈</div>
+          <h1 id="empty-title"></h1>
+          <p id="empty-body"></p>
+          <button class="btn primary" id="btn-import" type="button"></button>
+          <button class="btn ghost" id="btn-example" type="button"></button>
+        </section>
+
+        <div class="reader" id="reader" hidden>
+          <div class="scroll" id="scroll" tabindex="0"></div>
+        </div>
+        <div class="overlay" id="overlay" hidden></div>
+      </main>
+
+      <footer class="progress" id="progress" hidden>
+        <div class="progress-row">
+          <span class="progress-chapter" id="progress-chapter"></span>
+          <span class="progress-percent" id="progress-percent"></span>
+        </div>
+        <div class="progress-track" id="progress-track">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+      </footer>
+    </div>
+    <script src="reader.js"></script>
+  </body>
+</html>
