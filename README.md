@@ -1,100 +1,134 @@
-# 摸鱼阅读 · FishRead
+<div align="center">
+  <img src="./icon.svg" alt="FishRead icon" width="88" height="88">
+  <h1>FishRead</h1>
+  <p><strong>A private, offline floating novel reader for DeepSeek Harness</strong></p>
+  <p>Read in a dedicated native window—without occupying the DSH workspace, accessing the network, or sending your book to AI.</p>
+</div>
 
-> 一个真正独立的小窗小说阅读器：不占 DSH 页面，不联网，不交给 AI。
-> 侧栏面板列表里的书本图标，点开就是阅读窗口。
+---
 
-插件名是「摸鱼阅读」，入口和 Plugins、Schedules 并排放在侧栏面板列表里；点图标先在主区域看到当前小说，再点「导入小说」或「继续阅读」。
+## Overview
 
-## 它做什么
+FishRead adds a book icon beside **Plugins** and **Schedules** in the DeepSeek Harness sidebar. Select it to view the current novel, import a new book, or continue reading in a separate window.
 
-- **独立原生窗口** 380×560，可拖拽、可缩放、可置顶。DSH 主窗口最小化或隐藏时它继续存在；DSH 真正退出时它随之关闭。
-- **单本离线阅读** 导入一本 `.txt` 或 `.md`，正文复制进插件私有目录，不再依赖原文件。
-- **连续滚动 + 目录 + 进度** 分章加载，只把当前章附近的内容放进 DOM；进度按全文字符量计算，字号、行距、窗口尺寸变化后仍回到原来的文字位置。
-- **全局快捷键** 其他应用聚焦时也能隐藏、恢复、翻页。
-- **跟随 DSH 语言** 中文 / English 即时切换，包括独立窗口本身。
+### Highlights
 
-## 安装
+- **Independent native window** — A resizable 380 × 560 reader that can stay on top and remain open when the main DSH window is hidden or minimized.
+- **Fully offline reading** — Import one `.txt` or `.md` file. Its contents are copied into the plugin's private data directory, so the original file is no longer required.
+- **Smooth reading experience** — Continuous scrolling, chapter navigation, lazy rendering, and full-book progress tracking.
+- **Global keyboard shortcuts** — Hide or restore the reader and turn pages even when another application is focused.
+- **Built-in localization** — The interface follows the DSH language and switches between English and Chinese immediately.
 
-源码目录已经以 `link:` 方式加入本机 desktop profile。换机器时：
+> [!IMPORTANT]
+> FishRead does not load network resources, render book content as HTML, or send novel text to AI services.
+
+## Contents
+
+- [Installation](#installation)
+- [Book Format](#book-format)
+- [Keyboard Shortcuts](#keyboard-shortcuts)
+- [Settings](#settings)
+- [Data and Privacy](#data-and-privacy)
+- [Platform Notes](#platform-notes)
+- [Uninstallation](#uninstallation)
+
+## Installation
+
+Install the plugin from its local source directory:
 
 ```bash
 dsh plugin install /absolute/path/to/dsh-fishread
 ```
 
-首次打开窗口需要准备一次运行时：插件会把 DSH 安装包内自带的 Electron 复制到自己的私有目录，做一次 ad-hoc 签名。这一步只做一次，之后打开是即时的。
+The first launch prepares a private reader runtime by copying the Electron runtime bundled with DeepSeek Harness. On macOS, the copied runtime is ad-hoc signed. This one-time setup may take a moment; subsequent launches are immediate.
 
-## 导入格式
+## Book Format
 
-两种后缀使用**完全相同**的结构：第一条非空行是书名，`## ` 开头的行为章节。
+FishRead accepts `.txt` and `.md` files with the same structure:
 
 ```markdown
-# 三体
+# The Three-Body Problem
 
-写在前面：书名与第一章之间的文字会成为「引言」，不占用章节编号。
+Text between the title and first chapter becomes an unnumbered introduction.
 
-## 科学边界
+## The Frontiers of Science
 
-正文第一段。
+The first paragraph.
 
-正文第二段。
+The second paragraph.
 
-## 射手与农场主
+## The Pool Players
 
-正文。
+Chapter content.
 ```
 
-- `# 书名` 只能有一条，且必须是最先出现的内容。
-- `## 章节名` 至少一条；章节序号只按出现顺序生成，标题里写「第七章」也不会改变序号。
-- 书名与第一个 `##` 之间的文字会变成不编号的「引言」，章节序号不受影响（第一章仍是第一章）。
-- `###` 及更深的标题会被拒绝。
-- 编码优先 UTF-8；TXT 解码失败时可以按 GB18030 重试。
-- 出错时会指出文件行号和修复方式，**失败不会覆盖**当前小说的正文与进度。
+Formatting rules:
 
-导入：侧栏面板里点「导入小说」，阅读窗口弹出后选文件；空的阅读窗口里也有「选择小说文件」。窗口里的「查看格式示例」始终可点。
+1. The first non-empty line must be a single `# Book Title` heading.
+2. At least one chapter beginning with `## ` is required.
+3. Chapter numbers follow file order; numbers written in chapter titles do not affect ordering.
+4. Text before the first chapter becomes an unnumbered introduction.
+5. Headings at level `###` or deeper are rejected.
+6. UTF-8 is preferred. If TXT decoding fails, FishRead can retry with GB18030.
 
-## 快捷键
+Import errors include the relevant line number and a suggested correction. A failed import never overwrites the current book or reading progress.
 
-默认在 macOS 与 Windows 上一致：
+To import a book, select **Import Novel** in the sidebar panel and choose a file after the reader opens. The empty reader also provides a **Choose Novel File** action, and **View Format Example** remains available from the reader at any time.
 
-| 动作 | 默认组合 |
-| --- | --- |
-| 隐藏 / 恢复窗口 | `Ctrl + ;` |
-| 上一页 | `Ctrl + ,` |
-| 下一页 | `Ctrl + .` |
+## Keyboard Shortcuts
 
-macOS 上的 `Ctrl` 是键盘左下角的 Control（⌃），不是 Command。
+The defaults are identical on macOS and Windows:
 
-全部可以在插件设置页重新录制、单独恢复默认。只接受「一个修饰键 + 一个普通键」；与其他应用冲突时窗口会提示注册失败，与另一项快捷键重复则直接拒绝。
+| Action | Shortcut |
+| :--- | :---: |
+| Hide or restore the reader | `Ctrl + ;` |
+| Previous page | `Ctrl + ,` |
+| Next page | `Ctrl + .` |
 
-## 设置
+> [!NOTE]
+> On macOS, `Ctrl` means the Control key (⌃), not Command (⌘).
 
-插件设置页分三组：
+Shortcuts can be recorded again or reset individually from plugin settings. Each shortcut must contain exactly one modifier and one regular key. Duplicate combinations are rejected, while system-wide registration conflicts are reported in the reader.
 
-- **窗口** 置顶、记住位置、当前窗口状态与隐藏按钮。
-- **阅读** 字体、字号、行距、主题（跟随系统 / 浅色 / 米黄 / 深色）、首行缩进、进度显示方式。
-- **快捷键** 三个录制控件。
+## Settings
 
-阅读窗口内也有一份「阅读设置」，改完立即生效。
+Settings are organized into three groups:
 
-## 数据与隐私
+- **Window** — Always on top, restore last position, current window status, and hide controls.
+- **Reading** — Font, size, line height, theme (system, light, sepia, or dark), first-line indentation, and progress display.
+- **Shortcuts** — Custom key combinations for window and page controls.
 
-| 内容 | 位置 |
-| --- | --- |
-| 小说正文 | `<数据目录>/dsh-fishread/book/book.json` |
-| 书名与章节数 | `<数据目录>/dsh-fishread/metadata.json` |
-| 阅读进度 | `<数据目录>/dsh-fishread/progress.json` |
-| 阅读偏好与快捷键 | `<数据目录>/dsh-fishread/preferences.json` |
-| 影子运行时 | `<数据目录>/dsh-fishread/runtime/` |
+Reading preferences are also available inside the reader and apply immediately.
 
-macOS 的数据目录是 `~/Library/Application Support/dsh-fishread`，Windows 是 `%APPDATA%\dsh-fishread`。
+## Data and Privacy
 
-不写 Session、不写 Workspace、不记录原始文件路径；窗口不渲染 HTML、不加载任何网络资源，页面 CSP 为 `default-src 'none'`。设置页的「清除阅读数据」需要点两次才会执行：它删除小说、目录、进度与阅读偏好，保留可复用的影子运行时。
+| Data | Location |
+| :--- | :--- |
+| Novel content | `<data-dir>/dsh-fishread/book/book.json` |
+| Title and chapter count | `<data-dir>/dsh-fishread/metadata.json` |
+| Reading progress | `<data-dir>/dsh-fishread/progress.json` |
+| Preferences and shortcuts | `<data-dir>/dsh-fishread/preferences.json` |
+| Private reader runtime | `<data-dir>/dsh-fishread/runtime/` |
 
-## 平台差异
+Default data directories:
 
-- **macOS** 影子窗口从已安装的 `DeepSeek Harness.app` 复制可执行文件与 Frameworks，写入自己的 `Resources/app`，再用 `codesign --force --sign -` 做 ad-hoc 签名。签名只作用于复制出来的副本，不会修改 DSH 本体。
-- **Windows** 使用同一份主进程代码，从 DSH 安装目录复制 `electron.exe`、DLL 与 locales，`resources/app` 换成阅读器代码。
+- **macOS:** `~/Library/Application Support/dsh-fishread`
+- **Windows:** `%APPDATA%\dsh-fishread`
 
-## 卸载
+FishRead does not write to the DSH Session or Workspace and does not retain the original import path. The reader uses the Content Security Policy `default-src 'none'`.
 
-先在插件管理器里停用，再按需删除上表的数据目录。卸载插件不会自动删除小说与进度。
+Clearing reading data requires two confirmations. It removes the novel, table of contents, progress, and reading preferences while preserving the reusable private runtime.
+
+## Platform Notes
+
+### macOS
+
+FishRead copies the executable and Frameworks from the installed `DeepSeek Harness.app`, creates its own `Resources/app`, and applies an ad-hoc signature with `codesign --force --sign -`. The original DSH application is never modified.
+
+### Windows
+
+FishRead uses the same main-process implementation, copying `electron.exe`, required DLLs, and locale files from the DSH installation before replacing `resources/app` with the reader runtime.
+
+## Uninstallation
+
+Disable FishRead in the plugin manager first, then delete its data directory if you also want to remove imported books and reading progress. Uninstalling the plugin does not automatically delete user data.
