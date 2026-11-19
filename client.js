@@ -175,7 +175,22 @@ window.__ModuleLoader__.load({
     const ACTIONS = ['toggle', 'prevPage', 'nextPage']
 
     const STYLE = `
-[data-plugin-package="dsh-fishread"] img[width="36"] { width:100%; height:100%; border-radius:12px; }
+/*
+ * DSH renders plugin artwork smaller than its icon frame. FishRead's icon is
+ * full-bleed artwork, so expand it to the frame on both the Installed plugins
+ * card and the plugin detail header without affecting any other plugin.
+ */
+[data-plugin-package="dsh-fishread"] img[width="36"],
+[data-plugin-detail="dsh-fishread"] img[width="36"] {
+  width:100%;
+  height:100%;
+  border-radius:var(--dsw-radius-lg, 12px);
+}
+[data-plugin-detail="dsh-fishread"] img[width="30"] {
+  width:100%;
+  height:100%;
+  border-radius:var(--dsw-radius-md, 8px);
+}
 .fr-card { display:flex; flex-direction:column; gap:18px; color:var(--dsw-alias-label-primary); }
 .fr-summary { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .fr-summary p { margin:0; color:var(--dsw-alias-label-secondary); font-size:13px; }
