@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { decodeNovel, parseNovel, NovelParseError, isSupportedExtension } from '../shared/parse.js'
-import { formatChapterLabel, formatTocLabel, normalizeLocale, translate } from '../shared/i18n.js'
+import { DICTS, formatChapterLabel, formatTocLabel, normalizeLocale, translate } from '../shared/i18n.js'
 import {
   canonicallyAccelerator,
   findShortcutConflict,
@@ -102,6 +102,10 @@ test('locale falls back to English', () => {
   assert.equal(normalizeLocale(undefined), 'en')
   assert.equal(translate('fr', 'empty.title'), 'No novel yet')
   assert.equal(translate('zh', 'error.line', { line: 4, message: 'x' }), '第 4 行：x')
+})
+
+test('locale modules expose the same translation keys', () => {
+  assert.deepEqual(Object.keys(DICTS.zh).sort(), Object.keys(DICTS.en).sort())
 })
 
 test('shortcuts need one modifier plus one key', () => {
