@@ -788,10 +788,9 @@ async function ensureWindow(ctx) {
 
 async function openWindow(ctx, options) {
   const child = await ensureWindow(ctx)
-  await child.request('open', { import: options?.import === true })
-  // The window reports `visible` asynchronously, so trust the acknowledged
-  // request: otherwise this first response can still carry the previous state.
-  store.windowState = 'visible'
+  const result = await child.request('open', { import: options?.import === true })
+  // Window state events arrive asynchronously; use the acknowledged visibility.
+  store.windowState = result?.visible === true ? 'visible' : 'hidden'
   return { ok: true, state: store.windowState }
 }
 

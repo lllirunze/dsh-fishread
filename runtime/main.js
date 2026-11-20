@@ -25,7 +25,7 @@ let forceQuit = false
 let quitting = false
 // Set while the user wants the window hidden, so the late `ready-to-show`
 // callback cannot pop it back up when a hide arrives right after `open`.
-let hiddenRequested = false
+let hiddenRequested = true
 let pendingImport = null
 let importToken = 0
 let boundsTimer = null
@@ -356,6 +356,11 @@ ipcMain.handle('fishread:hide', () => {
   return { ok: true }
 })
 
+ipcMain.handle('fishread:show', () => {
+  showWindow()
+  return { ok: true }
+})
+
 ipcMain.handle('fishread:close', () => {
   destroyWindow()
   return { ok: true }
@@ -375,14 +380,16 @@ function decodeAndParse(bytes, fileName, encoding) {
 }
 
 ipcMain.handle('fishread:choose-file', async () => {
-  const result = await dialog.showOpenDialog(win ?? undefined, {
+  const parent = win !== null && !win.isDestroyed() && win.isVisible() ? win : undefined
+  const options = {
     title: state.dict['common.import'] ?? 'Import',
     properties: ['openFile'],
     filters: [
       { name: 'Text / Markdown', extensions: ['txt', 'md'] },
       { name: 'All files', extensions: ['*'] },
     ],
-  })
+  }
+  const result = await (parent === undefined ? dialog.showOpenDialog(options) : dialog.showOpenDialog(parent, options))
   if (result.canceled || result.filePaths.length === 0) return { ok: false, code: 'canceled' }
 
   const filePath = result.filePaths[0]
@@ -565,12 +572,14 @@ const hostMethods = {
   },
   open: (params) => {
     rendererReady = rendererReady && win !== null
-    showWindow()
     if (params?.import === true) {
+      ensureWindow()
       if (rendererReady && win !== null && !win.isDestroyed()) win.webContents.send('fishread:import')
       else importRequestPending = true
+    } else {
+      showWindow()
     }
-    return { ok: true }
+    return { ok: true, visible: win !== null && !win.isDestroyed() && win.isVisible() }
   },
   show: () => {
     showWindow()

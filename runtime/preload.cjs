@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('fishread', {
   saveProgress: (progress) => ipcRenderer.invoke('fishread:progress', progress),
   setPrefs: (patch) => ipcRenderer.invoke('fishread:set-prefs', patch),
   hideWindow: () => ipcRenderer.invoke('fishread:hide'),
+  showWindow: () => ipcRenderer.invoke('fishread:show'),
   closeWindow: () => ipcRenderer.invoke('fishread:close'),
   showExample: () => ipcRenderer.invoke('fishread:example'),
   onInit: (callback) => {

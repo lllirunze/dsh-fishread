@@ -831,11 +831,12 @@
   async function chooseFile() {
     const result = await api.chooseFile()
     if (result === undefined || result === null) return
+    if (result.code === 'canceled') return
+    await api.showWindow()
     if (result.ok === true) {
       openPreview(result)
       return
     }
-    if (result.code === 'canceled') return
     if (result.code === 'encoding' && result.gbkEligible === true) {
       openEncoding(result)
       return
