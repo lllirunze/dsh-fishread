@@ -10,6 +10,7 @@
  * @module dsh-fishread
  */
 import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { constants as fsConstants } from 'node:fs'
 import { access, chmod, copyFile, mkdir, readFile, readdir, rename, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
@@ -22,6 +23,7 @@ import { DEFAULT_PREFERENCES, MIN_BOUNDS, normalizePreferences, withShortcut } f
 
 const execFileAsync = promisify(execFile)
 
+const PLUGIN_ROOT = path.dirname(fileURLToPath(import.meta.url))
 const SETTINGS_PATH = '/api/fishread'
 const RUNTIME_MARKER = 'runtime.json'
 const WINDOW_READY_TIMEOUT = 20_000
@@ -30,7 +32,29 @@ function hasCookieValue(cookie) {
   return typeof cookie === 'string' && cookie.length > 0
 }
 
-const PLUGIN_VERSION = '0.1.3'
+export const PLUGIN_VERSION = '0.1.5'
+
+/**
+ * Every file that is copied into the staged reader bundle, as
+ * plugin-root-relative source and destination inside the staged app.
+ *
+ * Staging keys its marker on the contents of exactly these files, so editing a
+ * reader-side file always restages the live bundle, even when the plugin version
+ * did not change. A version-only marker used to keep a stale window runtime
+ * alive: the source was fixed, but the already staged copy kept the old
+ * behavior (for example opening the book page together with the import picker).
+ */
+export const RUNTIME_FILES = [
+  ['runtime/package.json', 'package.json'],
+  ['runtime/main.js', 'main.js'],
+  ['runtime/preload.cjs', 'preload.cjs'],
+  ['runtime/renderer/index.html', 'renderer/index.html'],
+  ['runtime/renderer/reader.js', 'renderer/reader.js'],
+  ['runtime/renderer/reader.css', 'renderer/reader.css'],
+  ['shared/parse.js', 'shared/parse.js'],
+  ['shared/i18n.js', 'shared/i18n.js'],
+  ['shared/prefs.js', 'shared/prefs.js'],
+]
 
 /* ------------------------------------------------------------------ paths */
 
@@ -446,22 +470,30 @@ function locateHarness() {
 }
 
 async function copyRuntimeApp(destination) {
-  const runtimeRoot = path.dirname(fileURLToPath(import.meta.url))
-  const appDir = path.join(destination)
-  await mkdir(path.join(appDir, 'renderer'), { recursive: true })
-  await mkdir(path.join(appDir, 'shared'), { recursive: true })
-  await copyFile(path.join(runtimeRoot, 'runtime', 'package.json'), path.join(appDir, 'package.json'))
-  await copyFile(path.join(runtimeRoot, 'runtime', 'main.js'), path.join(appDir, 'main.js'))
-  await copyFile(path.join(runtimeRoot, 'runtime', 'preload.cjs'), path.join(appDir, 'preload.cjs'))
-  for (const name of ['index.html', 'reader.js', 'reader.css']) {
-    await copyFile(
-      path.join(runtimeRoot, 'runtime', 'renderer', name),
-      path.join(appDir, 'renderer', name),
-    )
+  for (const [source, target] of RUNTIME_FILES) {
+    const file = path.join(destination, target)
+    await mkdir(path.dirname(file), { recursive: true })
+    await copyFile(path.join(PLUGIN_ROOT, source), file)
   }
-  for (const name of ['parse.js', 'i18n.js', 'prefs.js']) {
-    await copyFile(path.join(runtimeRoot, 'shared', name), path.join(appDir, 'shared', name))
+}
+
+/**
+ * Content fingerprint of the reader sources that staging copies.
+ *
+ * Cheap (nine small files) and independent of mtimes and version bumps: any
+ * edit to the window runtime changes the marker key and forces a restage.
+ *
+ * @param {string} [root] plugin root; overridable so tests can fingerprint a
+ *   temporary fixture instead of the real sources.
+ */
+export async function runtimeFingerprint(root = PLUGIN_ROOT) {
+  const hash = createHash('sha256')
+  for (const [source] of RUNTIME_FILES) {
+    hash.update(`${source}\u0000`)
+    hash.update(await readFile(path.join(root, source)))
+    hash.update('\u0000')
   }
+  return hash.digest('hex')
 }
 
 /**
@@ -591,6 +623,26 @@ function ensureRuntime(force = false) {
   return stagingRuntime
 }
 
+/**
+ * Whether a staging marker still describes the sources and Harness build at
+ * hand. Kept pure (the executable check lives in the caller) so tests can pin
+ * the invalidation rules — in particular that a marker written before
+ * `runtime` existed can never be reused.
+ *
+ * @param {any} marker
+ * @param {{ version: string, runtime: string, source: string, mtime: number }} desired
+ */
+export function markerIsFresh(marker, desired) {
+  return (
+    marker !== null &&
+    typeof marker === 'object' &&
+    marker.version === desired.version &&
+    marker.runtime === desired.runtime &&
+    marker.source === desired.source &&
+    marker.mtime === desired.mtime
+  )
+}
+
 /** @param {boolean} [force] */
 async function stageRuntime(force = false) {
   const harness = locateHarness()
@@ -601,16 +653,12 @@ async function stageRuntime(force = false) {
   const sourceMtime = PLATFORM === 'darwin'
     ? (await stat(path.join(harness, 'Contents', 'MacOS', 'DeepSeek Harness'))).mtimeMs
     : (await stat(harness)).mtimeMs
+  const fingerprint = await runtimeFingerprint()
   await mkdir(RUNTIME_DIR, { recursive: true })
   const markerPath = path.join(RUNTIME_DIR, RUNTIME_MARKER)
   const marker = await readJson(markerPath, null)
-  const fresh =
-    !force &&
-    marker !== null &&
-    marker.version === PLUGIN_VERSION &&
-    marker.source === harness &&
-    marker.mtime === sourceMtime &&
-    (await exists(WINDOW_EXECUTABLE))
+  const desired = { version: PLUGIN_VERSION, runtime: fingerprint, source: harness, mtime: sourceMtime }
+  const fresh = !force && markerIsFresh(marker, desired) && (await exists(WINDOW_EXECUTABLE))
   if (fresh) {
     noSandbox = marker.noSandbox === true
     return
@@ -630,6 +678,7 @@ async function stageRuntime(force = false) {
   }
   await writeJson(markerPath, {
     version: PLUGIN_VERSION,
+    runtime: fingerprint,
     source: harness,
     mtime: sourceMtime,
     noSandbox: false,

@@ -379,6 +379,29 @@ function decodeAndParse(bytes, fileName, encoding) {
   return { parsed, text }
 }
 
+/**
+ * Bring this helper forward before a standalone (parentless) dialog.
+ *
+ * macOS only activates an app that has a visible window. A helper launched in
+ * the background with nothing but a hidden reader window therefore opened the
+ * import picker behind DeepSeek Harness, and the user had to click the Dock
+ * icon before the panel could be seen. `steal` is fine here: the user just
+ * clicked the import/replace button in DSH.
+ *
+ * @returns {boolean} whether activation was attempted and should be undone
+ */
+function activateForDialog() {
+  if (process.platform !== 'darwin') return false
+  app.focus({ steal: true })
+  return true
+}
+
+/** Hand focus back after a canceled picker instead of leaving a windowless app in front. */
+function restoreFocusAfterCancel() {
+  if (process.platform !== 'darwin') return
+  if (win === null || win.isDestroyed() || !win.isVisible()) app.hide()
+}
+
 ipcMain.handle('fishread:choose-file', async () => {
   const parent = win !== null && !win.isDestroyed() && win.isVisible() ? win : undefined
   const options = {
@@ -389,8 +412,12 @@ ipcMain.handle('fishread:choose-file', async () => {
       { name: 'All files', extensions: ['*'] },
     ],
   }
+  const activated = parent === undefined && activateForDialog()
   const result = await (parent === undefined ? dialog.showOpenDialog(options) : dialog.showOpenDialog(parent, options))
-  if (result.canceled || result.filePaths.length === 0) return { ok: false, code: 'canceled' }
+  if (result.canceled || result.filePaths.length === 0) {
+    if (activated) restoreFocusAfterCancel()
+    return { ok: false, code: 'canceled' }
+  }
 
   const filePath = result.filePaths[0]
   if (!isSupportedExtension(filePath)) return { ok: false, code: 'unsupportedExt', line: 0 }

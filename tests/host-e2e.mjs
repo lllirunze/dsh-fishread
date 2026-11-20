@@ -10,8 +10,8 @@
 // The test keeps every write inside a throwaway temp directory by pointing
 // HOME there, so a run never leaves anything behind in the workspace.
 
-import { spawn } from 'node:child_process'
-import { access, mkdir, readdir, rm } from 'node:fs/promises'
+import { spawn, spawnSync } from 'node:child_process'
+import { access, mkdir, readFile, readdir, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -53,6 +53,7 @@ function dshChildEnv(explicit) {
 }
 
 let lastSpawnEnv = null
+let childLog = ''
 const ctx = {
   effect(fn) {
     const disposer = fn()
@@ -79,8 +80,15 @@ const ctx = {
         stdio: ['pipe', 'pipe', 'pipe'],
       })
       spawned.push(child)
+      child.stderr?.setEncoding('utf8')
+      child.stderr?.on('data', (chunk) => {
+        childLog = `${childLog}${chunk}`.slice(-8000)
+      })
       const done = new Promise((resolve) => {
-        child.on('exit', (code, signal) => resolve({ exitCode: code, signal }))
+        child.on('exit', (code, signal) => {
+          childLog = `${childLog}[child ${child.pid} exited code=${code} signal=${signal}]\n`
+          resolve({ exitCode: code, signal })
+        })
       })
       return {
         stdin: child.stdin,
@@ -98,7 +106,7 @@ const ctx = {
   },
 }
 
-const { apply } = await import('../index.js')
+const { apply, runtimeFingerprint } = await import('../index.js')
 apply(ctx)
 
 if (!ctx.__route) {
@@ -168,6 +176,13 @@ try {
   const visible = await waitFor('visible', (state) => state.window.state === 'visible')
   check('window becomes visible', visible?.window.state === 'visible', JSON.stringify(visible?.window))
 
+  const marker = JSON.parse(await readFile(path.join(visible.dataDir, 'runtime', 'runtime.json'), 'utf8'))
+  check(
+    'the staging marker records the reader source fingerprint',
+    marker.runtime === (await runtimeFingerprint()),
+    String(marker.runtime),
+  )
+
   const hidden = await call('hide')
   check('hide hides the window', hidden.body.window.state === 'hidden')
   const stillHidden = await waitFor('hidden', (state) => state.window.state === 'hidden', 5000)
@@ -207,6 +222,25 @@ try {
     runtimeEntries.every((name) => !/\.(staging|trash)-/.test(name)),
     runtimeEntries.join(','),
   )
+
+  // Regression for "Replace novel": opening the window for an import must only
+  // raise the native file picker. The reader window stays hidden until a file is
+  // chosen, so a stale staged runtime that called showWindow() first fails here.
+  const hiddenAgain = await call('hide')
+  check('the window is hidden before the import picker', hiddenAgain.body.window.state === 'hidden')
+  const picking = await call('open', { import: true })
+  check(
+    'opening for import acknowledges without showing the window',
+    picking.status === 200 && picking.body.window.state !== 'visible',
+    JSON.stringify(picking.body.window),
+  )
+  await new Promise((resolve) => setTimeout(resolve, 1500))
+  const afterPicker = await call('state')
+  check(
+    'the import picker never raises the reader window',
+    afterPicker.body.window.state === 'hidden',
+    afterPicker.body.window.state,
+  )
 } catch (error) {
   check('no unexpected error', false, error instanceof Error ? error.message : String(error))
 } finally {
@@ -220,9 +254,13 @@ try {
   for (const child of spawned) {
     if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM')
   }
+  // fs.rm can give up on the staged bundle's protected files, so fall back to
+  // the system rm: a leftover sandbox would be a full staged runtime.
   await rm(sandboxHome, { recursive: true, force: true }).catch(() => {})
+  spawnSync('rm', ['-rf', '--', sandboxHome])
 }
 
 const failed = results.filter((entry) => !entry.ok)
+if (failed.length > 0 && childLog !== '') console.log(`\n--- reader window output ---\n${childLog}`)
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`)
 process.exit(failed.length === 0 ? 0 : 1)
